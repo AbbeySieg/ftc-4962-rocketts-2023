@@ -98,6 +98,9 @@ public class DriveProgram extends OpMode {
     @Override
     public void init() {
 
+        //Close upon start requires reseting this variable on init, otherwise it will keep last target position
+        this.hookTargetPosition = this.hookClosedPosition;
+
         //create a vector to store our left stick x,y
         this.inputDirection = new Vec2();
         this.inputMagnitude = 0;
@@ -140,15 +143,30 @@ public class DriveProgram extends OpMode {
     float turnRaw = 0;
     float rad360 = MathEx.DEG2RAD * 360;
 
-    Debounce dPerpTurn = new Debounce(200);
+    //Debounce is used to avoid rapid fire detection of a button being pressed
+    //the debounce minTime is how long debounce will force you to wait until the
+    //button will show as pressed again
+    //its basically just a timer that counts down.
 
+    /**Debounce for pressing "A" button to toggle align mode on and off*/
+    Debounce dAlignWait = new Debounce(200);
+
+    /**Debounce for pressing "B" button to toggle hook closed and open*/
     Debounce dHookWait = new Debounce(350);
+
+    /**The servo position that represents the "hook" being released*/
     double hookOpenedPosition = 0.5d;
+
+    /**The servo position that represents the "hook" capturing the rubber band*/
     double hookClosedPosition = 1d;
+
+    /**Stores where we think the "hook" servo should be rotated to at any given time*/
     double hookTargetPosition = 0.5d;
 
+    /**Whether the "hook" should be in the closed position. Controls hookTargetPosition in loop()*/
     boolean hookShouldBeClosed = true;
 
+    /**A function where all input is listened to and variables adjusted based on them*/
     void handle_input() {
 
         //DRIVING DIRECTION / SPEED
@@ -180,7 +198,7 @@ public class DriveProgram extends OpMode {
 
         //left/right bumper change heading angle by 90deg
         int turn = boolToInt(this.gamepad1.right_bumper) - boolToInt(this.gamepad1.left_bumper);
-        if (turn != 0 && this.dPerpTurn.update()) {
+        if (turn != 0 && this.dAlignWait.update()) {
             this.desiredHeadingRadians -= (90f * turn)*DEG2RAD;
         }
 
@@ -251,6 +269,7 @@ public class DriveProgram extends OpMode {
         }
     }
 
+    /**A function where all motors/servos are commanded based on other variables calculated in handle_input() or otherwise*/
     void update_motors() {
         //send orientation as text so we can see it
 //        this.telemetry.addData(
@@ -290,9 +309,10 @@ public class DriveProgram extends OpMode {
         }
     }
 
+    /**Override the built-in loop() function so we can do our own code when the robot is running*/
     @Override
-    public void loop() {
-        //read from sensors (gyro)
+    public void loop() { //REV OpMode will call this repeatedly only between start/stop on driver station
+        //read from sensors (gyro in this case)
         this.update_sensors();
 
         //read and calculate gamepad inputs
@@ -301,7 +321,7 @@ public class DriveProgram extends OpMode {
         //output to motors
         this.update_motors();
 
-        //anything that needs logged will now do so
+        // send any calls to telemetry.addData() to the driver station so they can be seen by the driver/coder
         this.telemetry.update();
 
     }
